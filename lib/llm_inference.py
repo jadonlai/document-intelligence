@@ -9,7 +9,12 @@ pipe_path = Path(PHI3MODELPATH)
 def get_phi3_pipeline():
     print('Loading phi3 pipeline...')
     tokenizer = AutoTokenizer.from_pretrained(PHI3MODEL)
-    model = AutoModelForCausalLM.from_pretrained(PHI3MODEL, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained( 
+        "microsoft/Phi-3-mini-4k-instruct",
+        device_map="cuda",
+        torch_dtype="auto",
+        trust_remote_code=True
+    )
     model.save_pretrained('./models/')
     print('Saved phi3 model...')
     pipe = pipeline('text-generation', model=model, tokenizer=tokenizer)
