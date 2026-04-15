@@ -1,6 +1,6 @@
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from constants import PHI3MODEL, PHI3MODELPATH, PHI3CONTEXT
+from .constants import PHI3MODEL, PHI3MODELPATH, PHI3CONTEXT
 
 pipe_path = Path(PHI3MODELPATH)
 

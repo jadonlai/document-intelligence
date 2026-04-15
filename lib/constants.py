@@ -1,5 +1,9 @@
-EMBEDDINGSPATH = 'models/embeddings.pkl'
+CHUNKSIZE = 100
+OVERLAP = 25
+PDFFOLDER = './pdfs'
+EMBEDDINGSFOLDER = './embeddings'
 EMBEDDINGMODEL = 'all-MiniLM-L6-v2'
+SENTENCETRANSFORMEREMBEDDINGSIZE = 384
 PHI3MODELPATH = 'models/Phi-3-mini-4k-instruct'
 PHI3MODEL = 'microsoft/Phi-3-mini-4k-instruct'
 PHI3CONTEXT = """
