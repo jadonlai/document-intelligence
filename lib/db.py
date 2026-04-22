@@ -20,29 +20,44 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 
-def doc_check_exists(column: Literal['filename', 'uuid'], value: str) -> APIResponse:
-    response = supabase.table('documents')\
-        .select(column)\
-        .eq(column, value)\
-        .execute()
+def doc_check_exists(column: Literal['filename', 'uuid'], value: str) -> APIResponse | Literal[-1]:
+    try:
+        response = supabase.table('documents')\
+            .select(column)\
+            .eq(column, value)\
+            .execute()
+    except APIError as e:
+        print(e)
+        return -1
     return response
 
 def doc_insert(filename: str, record: dict) -> APIResponse | Literal[-1]:
     existing = doc_check_exists('filename', filename)
-    if existing.data:
+    if existing == -1:
+        print('Error checking for existing document')
+        return -1
+    if len(existing.data) > 0:
         print('Document already exists in documents table')
         return -1
     
-    response = supabase.table('documents')\
-        .insert(record)\
-        .execute()
+    try:
+        response = supabase.table('documents')\
+            .insert(record)\
+            .execute()
+    except APIError as e:
+        print(e)
+        return -1
     return response
 
-def doc_delete(column: Literal['filename', 'uuid'], value: str) -> APIResponse:
-    response = supabase.table('documents')\
-        .delete()\
-        .eq(column, value)\
-        .execute()
+def doc_delete(column: Literal['filename', 'uuid'], value: str) -> APIResponse | Literal[-1]:
+    try:
+        response = supabase.table('documents')\
+            .delete()\
+            .eq(column, value)\
+            .execute()
+    except APIError as e:
+        print(e)
+        return -1
     return response
 
 def vec_init_db(dim: int) -> vecs.Collection:
@@ -51,11 +66,14 @@ def vec_init_db(dim: int) -> vecs.Collection:
     chunks.create_index(measure=vecs.IndexMeasure.cosine_distance)
     return chunks
 
-def vec_batch_upsert(collection: vecs.Collection, records: list, uuid: str, batch_size=500) -> Literal[-1] | None:
+def vec_batch_upsert(collection: vecs.Collection, records: list, uuid: str, batch_size=500) -> int | None:
     existing = doc_check_exists('uuid', uuid)
-    if existing.data:
-        print('Embeddings already exists in chunks table')
+    if existing == -1:
+        print('Error checking for existing document')
         return -1
+    if len(existing.data) > 0:
+        print('Document already exists in documents table')
+        return 0
     
     for i in range(0, len(records), batch_size):
         batch = records[i:i + batch_size]
@@ -63,12 +81,13 @@ def vec_batch_upsert(collection: vecs.Collection, records: list, uuid: str, batc
         
 def upload_new_doc(filename: str, doc_record: dict, chunks_records: list, batch_size=500) -> Literal[-1] | None:
     response = doc_insert(filename, doc_record)
-    if not isinstance(response, APIResponse):
+    if response == -1:
+        print('Error inserting document into documents table')
         return -1
     
     chunks = vec_init_db(SENTENCETRANSFORMEREMBEDDINGSIZE)
     empty_uuid = '00000000-0000-0000-0000-000000000000'
-    # Enter in empty uuid to successfully insert
+    # Enter in empty uuid to successfully insert, bypassing the document existing check
     response = vec_batch_upsert(chunks, chunks_records, empty_uuid, batch_size=batch_size)
     if response == -1:
         response = doc_delete('uuid', doc_record['uuid'])

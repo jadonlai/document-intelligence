@@ -3,12 +3,12 @@ import torch
 import uuid
 from datetime import datetime
 from lib.constants import PDFFOLDER, CHUNKSIZE, OVERLAP
-from lib.db import upload_new_doc
+from lib.db import doc_check_exists, doc_insert, upload_new_doc
 from lib.doc_analysis import create_records, get_text, chunkify, encode_doc
 
 
 
-if __name__ == '__main__':
+def upload_doc_to_db():
     filename = 'webster_dic.pdf'
     with open(f'{PDFFOLDER}/{filename}', 'rb') as f:
         doc = fitz.open(f)
@@ -39,3 +39,6 @@ if __name__ == '__main__':
         exit(1)
     
     print('Document uploaded to database successfully')
+
+if __name__ == '__main__':
+    pass
