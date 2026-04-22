@@ -1,14 +1,13 @@
 import fitz
 import torch
-import pickle
 from sentence_transformers import SentenceTransformer
-from .constants import CHUNKSIZE, EMBEDDINGMODEL, OVERLAP, PDFFOLDER, EMBEDDINGSFOLDER
+from .constants import EMBEDDINGMODEL
 
 SENTENCETRANSFORMER = SentenceTransformer(EMBEDDINGMODEL)
 
 
 
-def get_text(doc: fitz.Document):
+def get_text(doc: fitz.Document) -> str:
     text = ""
     for page in doc:
         page_text = page.get_text()
@@ -20,7 +19,7 @@ def get_text(doc: fitz.Document):
             text += str(page_text)
     return text
 
-def chunkify(text: str, size: int, overlap: int):
+def chunkify(text: str, size: int, overlap: int) -> list[str]:
     words = text.split()
     chunks = []
     for i in range(0, len(words), size - overlap):
@@ -28,29 +27,14 @@ def chunkify(text: str, size: int, overlap: int):
         chunks.append(chunk)
     return chunks
 
-def save_embeddings(path: str, chunks: list[str], embeddings: torch.Tensor):
-    with open(path, 'wb') as f:
-        pickle.dump({'chunks': chunks, 'embeddings': embeddings}, f)
-        
-def save_embeddings_from_text(filename: str):
-    doc = fitz.open(f'{PDFFOLDER}/{filename}')
-    text = get_text(doc)
-    chunks = chunkify(text, CHUNKSIZE, OVERLAP)
-    embeddings = encode_doc(chunks)
-    save_embeddings(f'{EMBEDDINGSFOLDER}/{filename[:-4]}.pkl', chunks, embeddings) # type: ignore
-    
-def open_embeddings(path: str):
-    with open(path, 'rb') as f:
-        data = pickle.load(f)
-    chunks = data['chunks']
-    embeddings = data['embeddings']
-    return chunks, embeddings
+def encode_doc(chunks: list[str], batch_size: int = 32) -> torch.Tensor:
+    embeddings = SENTENCETRANSFORMER.encode_document(chunks, batch_size=batch_size, show_progress_bar=True, convert_to_tensor=True)
+    if not isinstance(embeddings, torch.Tensor):
+        raise TypeError('Embeddings must be a torch.Tensor')
 
-def encode_doc(chunks: list[str]):
-    embeddings = SENTENCETRANSFORMER.encode_document(chunks, batch_size=32, show_progress_bar=True, convert_to_tensor=True)
     return embeddings
 
-def search_embeddings(query: str, embeddings: torch.Tensor, top_k=1):
+def search_embeddings(query: str, embeddings: torch.Tensor, top_k=1) -> tuple[list[torch.Tensor], torch.Tensor]:
     query_embedding = SENTENCETRANSFORMER.encode_query(query, convert_to_tensor=True)
     scores = []
     similarity_score = SENTENCETRANSFORMER.similarity(query_embedding, embeddings)[0] # type: ignore
@@ -58,16 +42,16 @@ def search_embeddings(query: str, embeddings: torch.Tensor, top_k=1):
     scores.append(score)
     return scores, i
 
-def create_records(filename: str, chunks: list[str], embeddings: torch.Tensor):
+def create_records(uuid: str, chunks: list[str], embeddings: torch.Tensor) -> list[tuple[str, torch.Tensor, dict[str, str | int]]]:
     records = []
     for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
         records.append((
-            f'chunk_{i}',
-            embedding,
+            f'uuid_{uuid}_page_{i}',
+            embedding.cpu(),
             {
-                'filename': filename,
                 'page': i,
-                'chunk': chunk
+                'chunk': chunk,
+                'uuid': uuid
             }
         ))
     return records
