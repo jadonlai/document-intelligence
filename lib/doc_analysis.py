@@ -41,6 +41,12 @@ def encode_query(query: str) -> torch.Tensor:
         raise TypeError('Embedding must be a torch.Tensor')
     return embedding
 
+def cross_encode_chunks(query: str, chunks: list[str], k: int = 10) -> list[tuple[str, torch.Tensor]]:
+    pairs = [(query, chunk) for chunk in chunks]
+    rerank_scores = CROSSENCODER.predict(pairs)
+    ranked = sorted(zip(chunks, rerank_scores), key=lambda x: x[1], reverse=True)
+    return ranked[:k]
+
 def create_records(uuid: str, chunks: list[str], embeddings: torch.Tensor) -> list[tuple[str, torch.Tensor, dict[str, str | int]]]:
     records = []
     for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
