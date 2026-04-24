@@ -1,5 +1,6 @@
 from postgrest import APIError, APIResponse
 from typing import Literal
+import torch
 import vecs
 import os
 from dotenv import load_dotenv
@@ -78,6 +79,38 @@ def vec_batch_upsert(collection: vecs.Collection, records: list, uuid: str, batc
     for i in range(0, len(records), batch_size):
         batch = records[i:i + batch_size]
         collection.upsert(records=batch)
+        
+def vec_get_uuid_from_filename(filename: str) -> str | Literal[-1]:
+    try:
+        uuid = supabase.table('documents')\
+            .select('uuid')\
+            .eq('filename', filename)\
+            .single()\
+            .execute()
+    except APIError as e:
+        print(e)
+        return -1
+    
+    if (not isinstance(uuid.data, dict)) or len(uuid.data) == 0:
+        print('Document not found in documents table')
+        print(uuid)
+        return -1
+    
+    return uuid.data['uuid'] # type: ignore
+
+def vec_query_from_uuid(uuid: str, query_embedding: list[float], k: int = 50) -> APIResponse | Literal[-1]:
+    try:
+        response = supabase.schema('vecs').rpc('query_chunks_from_uuid',
+            {
+                'target_uuid': uuid,
+                'query_embedding': query_embedding,
+                'k': k
+            } # type: ignore
+        ).execute()
+    except APIError as e:
+        print(e)
+        return -1
+    return response
         
 def upload_new_doc(filename: str, doc_record: dict, chunks_records: list, batch_size=500) -> Literal[-1] | None:
     response = doc_insert(filename, doc_record)

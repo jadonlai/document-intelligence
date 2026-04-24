@@ -1,9 +1,10 @@
 import fitz
 import torch
-from sentence_transformers import SentenceTransformer
-from .constants import EMBEDDINGMODEL
+from sentence_transformers import SentenceTransformer, CrossEncoder
+from .constants import EMBEDDINGMODEL, CROSSENCODERMODEL
 
 SENTENCETRANSFORMER = SentenceTransformer(EMBEDDINGMODEL)
+CROSSENCODER = CrossEncoder(CROSSENCODERMODEL)
 
 
 
@@ -34,13 +35,11 @@ def encode_doc(chunks: list[str], batch_size: int = 32) -> torch.Tensor:
 
     return embeddings
 
-def search_embeddings(query: str, embeddings: torch.Tensor, top_k=1) -> tuple[list[torch.Tensor], torch.Tensor]:
-    query_embedding = SENTENCETRANSFORMER.encode_query(query, convert_to_tensor=True)
-    scores = []
-    similarity_score = SENTENCETRANSFORMER.similarity(query_embedding, embeddings)[0] # type: ignore
-    score, i = torch.topk(similarity_score, k=top_k)
-    scores.append(score)
-    return scores, i
+def encode_query(query: str) -> torch.Tensor:
+    embedding = SENTENCETRANSFORMER.encode_query(query, convert_to_tensor=True)
+    if not isinstance(embedding, torch.Tensor):
+        raise TypeError('Embedding must be a torch.Tensor')
+    return embedding
 
 def create_records(uuid: str, chunks: list[str], embeddings: torch.Tensor) -> list[tuple[str, torch.Tensor, dict[str, str | int]]]:
     records = []

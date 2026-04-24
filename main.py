@@ -1,17 +1,24 @@
 import fitz
+from sentence_transformers import CrossEncoder
 import torch
 import uuid
 from datetime import datetime
 from lib.constants import PDFFOLDER, CHUNKSIZE, OVERLAP
-from lib.db import doc_check_exists, doc_insert, upload_new_doc
-from lib.doc_analysis import create_records, get_text, chunkify, encode_doc
+from lib.db import doc_check_exists, doc_insert, upload_new_doc, vec_get_uuid_from_filename, vec_query_from_uuid
+from lib.doc_analysis import create_records, encode_query, get_text, chunkify, encode_doc
+
+CROSSENCODER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 
 
-def upload_doc_to_db():
-    filename = 'webster_dic.pdf'
+def open_file(filename: str) -> fitz.Document:
     with open(f'{PDFFOLDER}/{filename}', 'rb') as f:
         doc = fitz.open(f)
+    return doc
+
+def upload_doc_to_db() -> None:
+    filename = 'webster_dic.pdf'
+    doc = open_file(filename)
         
     print('Extracting text...')
     text = get_text(doc)
@@ -41,4 +48,27 @@ def upload_doc_to_db():
     print('Document uploaded to database successfully')
 
 if __name__ == '__main__':
-    pass
+    # filename = 'webster_dic.pdf'
+    # doc = open_file(filename)
+    # text = get_text(doc)
+    # chunks = chunkify(text, CHUNKSIZE, OVERLAP)
+    # embeddings = encode_doc(chunks)
+    # scores, i = search_embeddings('canine dog', embeddings)
+    # print(scores, i)
+    
+    query = 'what the dog doing'
+    query_embedding = encode_query(query)
+    file_uuid = vec_get_uuid_from_filename('webster_dic.pdf')
+    if file_uuid == -1:
+        print('Error getting uuid from filename')
+        exit(1)
+    response = vec_query_from_uuid(file_uuid, query_embedding.tolist())
+    candidates = [item['metadata']['chunk'] for item in response.data] # type: ignore
+        
+    pairs = [(query, chunk) for chunk in candidates]
+    rerank_scores = CROSSENCODER.predict(pairs)
+    ranked = sorted(zip(candidates, rerank_scores), key=lambda x: x[1], reverse=True)
+
+    top_results = [x[0] for x in ranked[:10]]
+    for x in top_results:
+        print(x + '\n\n')

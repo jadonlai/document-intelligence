@@ -2,6 +2,7 @@ CHUNKSIZE = 100
 OVERLAP = 25
 PDFFOLDER = './pdfs'
 EMBEDDINGMODEL = 'all-MiniLM-L6-v2'
+CROSSENCODERMODEL = 'cross-encoder/ms-marco-MiniLM-L-6-v2'
 SENTENCETRANSFORMEREMBEDDINGSIZE = 384
 PHI3MODELPATH = 'models/Phi-3-mini-4k-instruct'
 PHI3MODEL = 'microsoft/Phi-3-mini-4k-instruct'
