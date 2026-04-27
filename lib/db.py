@@ -1,6 +1,5 @@
 from postgrest import APIError, APIResponse
 from typing import Literal
-import torch
 import vecs
 import os
 from dotenv import load_dotenv

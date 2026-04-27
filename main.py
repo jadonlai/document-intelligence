@@ -3,8 +3,9 @@ import torch
 import uuid
 from datetime import datetime
 from lib.constants import PDFFOLDER, CHUNKSIZE, OVERLAP
-from lib.db import doc_check_exists, doc_insert, upload_new_doc, vec_get_uuid_from_filename, vec_query_from_uuid
-from lib.doc_analysis import create_records, cross_encode_chunks, encode_query, get_text, chunkify, encode_doc
+from lib.db import upload_new_doc, vec_get_uuid_from_filename, vec_query_from_uuid
+from lib.embeddings import create_records, cross_encode_chunks, encode_query, get_text, chunkify, encode_doc
+from lib.llm import generate_stream
 
 
 
@@ -43,25 +44,20 @@ def upload_doc_to_db() -> None:
         exit(1)
     
     print('Document uploaded to database successfully')
-
-if __name__ == '__main__':
-    # filename = 'webster_dic.pdf'
-    # doc = open_file(filename)
-    # text = get_text(doc)
-    # chunks = chunkify(text, CHUNKSIZE, OVERLAP)
-    # embeddings = encode_doc(chunks)
-    # scores, i = search_embeddings('canine dog', embeddings)
-    # print(scores, i)
     
-    query = 'what is the spine'
+def get_top_chunks(query: str, file: str):
     query_embedding = encode_query(query)
-    file_uuid = vec_get_uuid_from_filename('webster_dic.pdf')
+    file_uuid = vec_get_uuid_from_filename(file)
     if file_uuid == -1:
         print('Error getting uuid from filename')
         exit(1)
     response = vec_query_from_uuid(file_uuid, query_embedding.tolist())
     chunks = [item['metadata']['chunk'] for item in response.data] # type: ignore
     top_chunks = cross_encode_chunks(query, chunks) # type: ignore
-    
-    for chunk in top_chunks:
-        print(chunk, '\n\n')
+    return top_chunks
+
+if __name__ == '__main__':
+    query = 'define fail'
+    file = 'webster_dic.pdf'
+    chunks = get_top_chunks(query, file)
+    generate_stream(query, [chunk[0] for chunk in chunks])
